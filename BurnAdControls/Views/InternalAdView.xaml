@@ -1,0 +1,72 @@
+﻿<UserControl x:Class="BurnAdControls.Views.InternalAdView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    FontFamily="{StaticResource PhoneFontFamilyNormal}"
+    FontSize="{StaticResource PhoneFontSizeNormal}"
+    Foreground="{StaticResource PhoneForegroundBrush}"
+    Height="80" d:DesignWidth="480">
+	<UserControl.Resources>
+		<ControlTemplate x:Key="ButtonEmptyControlTemplate" TargetType="Button">
+			<Border BorderBrush="{StaticResource PhoneBorderBrush}" BorderThickness="1">
+				<ContentPresenter/>
+			</Border>
+		</ControlTemplate>
+		<Storyboard x:Name="RateThisAppInAnimation">
+			<DoubleAnimationUsingKeyFrames Storyboard.TargetProperty="(UIElement.Projection).(PlaneProjection.RotationY)" Storyboard.TargetName="RateAppButton">
+				<EasingDoubleKeyFrame KeyTime="0" Value="-90"/>
+				<EasingDoubleKeyFrame KeyTime="0:0:0.4" Value="0"/>
+			</DoubleAnimationUsingKeyFrames>
+		</Storyboard>
+		<Storyboard x:Name="RateThisAppOutAnimation">
+			<DoubleAnimationUsingKeyFrames Storyboard.TargetProperty="(UIElement.Projection).(PlaneProjection.RotationY)" Storyboard.TargetName="RateAppButton">
+				<EasingDoubleKeyFrame KeyTime="0" Value="0"/>
+				<EasingDoubleKeyFrame KeyTime="0:0:0.4" Value="-90"/>
+			</DoubleAnimationUsingKeyFrames>
+		</Storyboard>
+	</UserControl.Resources>
+    <Grid>
+    <Button Command="{Binding DefaultCommand}" Template="{StaticResource ButtonEmptyControlTemplate}">
+        <Grid x:Name="LayoutRoot" Background="{StaticResource PhoneBackgroundBrush}">    
+            <Image Source="{Binding Logo}" Margin="6"
+                   HorizontalAlignment="Left"/>
+            <StackPanel x:Name="TextStack1" Grid.Column="1" 
+                        VerticalAlignment="Center"
+                        Opacity="1"
+                        Margin="36 0 0 0">
+                <TextBlock x:Name="TextLine1" 
+                           Text="{Binding Text1Line1}" 
+                           HorizontalAlignment="Center"/>
+                <TextBlock x:Name="TextLine2"
+                           Text="{Binding Text1Line2}"
+                           Style="{StaticResource PhoneTextSmallStyle}"
+                           HorizontalAlignment="Center" />
+            </StackPanel>
+            <StackPanel x:Name="TextStack2"
+                        Grid.Column="1"
+                        VerticalAlignment="Center"
+                        Opacity="0"
+                        Margin="36 0 0 0">
+                <TextBlock x:Name="TextLine3"
+                           Text="{Binding Text2Line1}"
+                           HorizontalAlignment="Center" />
+                <TextBlock x:Name="TextLine4"
+                           Text="{Binding Text2Line2}"
+                           Style="{StaticResource PhoneTextSmallStyle}"
+                           HorizontalAlignment="Center" />
+            </StackPanel>
+        </Grid>
+    </Button>
+        <Button x:Name="RateAppButton" Command="{Binding RateThisAppCommand}"
+            Template="{StaticResource ButtonEmptyControlTemplate}">
+        	<Button.Projection>
+        		<PlaneProjection RotationY="-90"/>
+        	</Button.Projection>
+            <Grid Background="{StaticResource PhoneAccentBrush}">
+                <Image Source="/BurnAdControls;Component/Assets/ratethisapp_background.png"/>
+            </Grid>
+        </Button>
+    </Grid>
+</UserControl>

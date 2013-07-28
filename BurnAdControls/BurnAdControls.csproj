@@ -54,8 +54,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BurnAdControl.cs" />
+    <Compile Include="BurnAdStartupParams.cs" />
     <Compile Include="Commands\BuyAppCommand.cs" />
     <Compile Include="Commands\RateThisAppCommand.cs" />
+    <Compile Include="Exceptions\MissingRequirementException.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="ViewModels\BurnAdViewModel.cs" />
     <Compile Include="Views\InternalAdView.xaml.cs">

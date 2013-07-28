@@ -30,7 +30,7 @@ namespace BurnAdControlTest
                         DefaultCommand = new BuyAppCommand("the app id of the app you are highlighting")
                     };
 
-                _BurnAdControl = new BurnAdControl(this, AdPanel, highlight);
+                _BurnAdControl = new BurnAdControl(this, AdPanel, new BurnAdStartupParams {AppHighlight = highlight, DelayStartSeconds = 5d});
                 _BurnAdControl.AdKeyWords = "my,keywords,for,the,ad,server";
                 _BurnAdControl.AdServerRefreshSeconds = 40d;
 

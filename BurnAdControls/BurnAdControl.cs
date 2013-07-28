@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
+using BurnAdControls.Exceptions;
 using BurnAdControls.ViewModels;
 using BurnAdControls.Views;
 using Microsoft.Advertising;
@@ -21,17 +23,21 @@ namespace BurnAdControls
         private readonly Grid _PageGrid;
         private Grid _PlaceHolder;
         private string _AdKeyWords;
+        private double _Longitude;
+        private double _Latitude;
 
         private const double AppHighlightSeconds = 10d;
         private const double AdServerWaitSeconds = 30d;
         public const double MinAdServerRefreshSeconds = 30d;
 
         private BurnAdViewModel _LastViewModel;
+        private readonly BurnAdStartupParams _BurnAdStartupParams;
 
         private InternalAdView _InternalAdView;
         private DispatcherTimer _ErrorTimer;
         private DispatcherTimer _AdServerRefreshTimer;
-        private double _AdServerRefreshSeconds = 45d;
+        private DispatcherTimer _DelayStartTimer;
+        private double _AdServerRefreshSeconds = 40d;
         
         public bool HideOnFailure { get; set; }
 
@@ -43,17 +49,18 @@ namespace BurnAdControls
            _AdUnitId = "TextAd";
             _Page = page;
             _PageGrid = content;
+            _BurnAdStartupParams = null;
             Setup();
         }
 
-        public BurnAdControl(PhoneApplicationPage page, Grid content, BurnAdViewModel appHighlight)
+        public BurnAdControl(PhoneApplicationPage page, Grid content, BurnAdStartupParams startupParams)
         {
             _ApplicationId = "test_client";
            _AdUnitId = "TextAd";
             _Page = page;
             _PageGrid = content;
-
-            Setup(appHighlight);
+            _BurnAdStartupParams = startupParams;
+            Setup(startupParams);
         }
         
         public BurnAdControl(PhoneApplicationPage page, Grid content, string adApplicaiontId, string adUnitId)
@@ -66,49 +73,112 @@ namespace BurnAdControls
             Setup();
         }
 
-        public BurnAdControl(PhoneApplicationPage page, Grid content, string adApplicaiontId, string adUnitId, BurnAdViewModel appHighlight)
+        public BurnAdControl(PhoneApplicationPage page, Grid content, string adApplicaiontId, string adUnitId, BurnAdStartupParams startupParams)
         {
             _ApplicationId = adApplicaiontId;
             _AdUnitId = adUnitId;
             _Page = page;
             _PageGrid = content;
 
-            Setup(appHighlight);
+            Setup(startupParams);
         }
 
         private void Setup()
         {
-            HideOnFailure = false;
-            _InternalAdView = new InternalAdView();
-            SetupTimers(AdServerWaitSeconds);
-            _Page.Unloaded += PageUnloaded;
+            CommonSetup();
 
-             SetupGrid();
+            StartAdControl();
+        }
+
+        private void Setup(BurnAdStartupParams startupParams)
+        {
+            CommonSetup();
+
+            if (startupParams.DelayStartSeconds <= 0.0d)
+            {
+                if (startupParams.AppHighlight != null)
+                {
+                    _ErrorTimer.Interval = TimeSpan.FromSeconds(AppHighlightSeconds);
+                    StartAppHighlight(startupParams.AppHighlight);
+                }
+                else
+                {
+                    StartAdControl();
+                }
+            }
+            else
+            {
+                _DelayStartTimer = new DispatcherTimer{Interval = TimeSpan.FromSeconds(startupParams.DelayStartSeconds)};
+                _DelayStartTimer.Tick += DelayStartTick;
+                _DelayStartTimer.Start();
+            }
+        }
+
+        private void DelayStartTick(object sender, EventArgs e)
+        {
+            _DelayStartTimer.Stop();
+            if(_BurnAdStartupParams.AppHighlight==null)
+                StartAdControl();
+            else
+                StartAppHighlight(_BurnAdStartupParams.AppHighlight);
+        }
+
+        private void CommonSetup()
+        {
+            HideOnFailure = false;
+            SetupGrid();
+            SetupErrorTimer();
+            _InternalAdView = new InternalAdView();
+            _Page.Unloaded += PageUnloaded;
+            _AdServerRefreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(_AdServerRefreshSeconds) };
+            _AdServerRefreshTimer.Tick += AdServerRefreshTimerTick;
+        }
+
+        private void StartAdControl()
+        {
             AddAdControl();
         }
 
-        private void Setup(BurnAdViewModel appHighlight)
+        private void StartAppHighlight(BurnAdViewModel appHighlight)
         {
-            HideOnFailure = false;
-            _InternalAdView = new InternalAdView();
-            SetupTimers(AppHighlightSeconds);
-            _Page.Unloaded += PageUnloaded;
-
-            SetupGrid();
             _InternalAds.Add(appHighlight);
-
             RunInternalAds();
             _ErrorTimer.Start();
         }
 
-        private void SetupTimers(double errorTimerSeconds)
+        public double Latitude
         {
-            _ErrorTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(errorTimerSeconds) };
+            get { return _Latitude; }
+            set
+            {
+                _Latitude = value;
+                SetAdLocation();
+            }
+        }
+
+        public double Longitude
+        {
+            get { return _Longitude; }
+            set
+            {
+                _Longitude = value;
+                SetAdLocation();
+            }
+        }
+
+        private void SetAdLocation()
+        {
+            if (_AdControl != null)
+            {
+                _AdControl.Latitude = _Latitude;
+                _AdControl.Longitude = _Longitude;
+            }
+        }
+
+        private void SetupErrorTimer()
+        {
+            _ErrorTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(AdServerRefreshSeconds) };
             _ErrorTimer.Tick += EnableAdControl;
-
-            _AdServerRefreshTimer = new DispatcherTimer{Interval = TimeSpan.FromSeconds(_AdServerRefreshSeconds)};
-            _AdServerRefreshTimer.Tick += AdServerRefreshTimerTick;
-
         }
 
         private void AdServerRefreshTimerTick(object sender, EventArgs e)
@@ -225,6 +295,8 @@ namespace BurnAdControls
         {
             _AdControl = new AdControl(_ApplicationId, _AdUnitId, false) { Height = 80, Width = 480, IsAutoCollapseEnabled = true };
 
+            SetAdLocation();
+
             _AdControl.ErrorOccurred += AdControlErrorOccurred;
             SetAdKeyWords();
             _AdServerRefreshTimer.Start();
@@ -244,6 +316,9 @@ namespace BurnAdControls
         private void AdControlErrorOccurred(object sender, AdErrorEventArgs e)
         {
             _AdServerRefreshTimer.Stop();
+
+            CheckRequiredCapabilities(e);
+
             if (!_ErrorTimer.IsEnabled)
             {
                 if (!HideOnFailure)
@@ -304,6 +379,15 @@ namespace BurnAdControls
         {
             if(_InternalAdView!=null)
                 _InternalAdView.StopTimer();
+        }
+
+        [Conditional("DEBUG")]
+        private static void CheckRequiredCapabilities(AdErrorEventArgs adErrorEventArgs)
+        {
+            if (adErrorEventArgs.ErrorCode == ErrorCode.ClientConfiguration)
+            {
+                throw new MissingRequirementException(adErrorEventArgs.Error.Message);
+            }
         }
     }
 }
